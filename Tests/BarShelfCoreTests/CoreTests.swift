@@ -57,3 +57,61 @@ final class VisibilityModeCodecTests: XCTestCase {
         XCTAssertEqual(VisibilityModeCodec.decode(data), ["valid": .floatingShelf])
     }
 }
+
+final class VisibilityModeCLITests: XCTestCase {
+    func testParsesCLIAndRawModeNames() {
+        XCTAssertEqual(VisibilityMode.parse("always-shown"), .alwaysShown)
+        XCTAssertEqual(VisibilityMode.parse("floating-shelf"), .floatingShelf)
+        XCTAssertEqual(VisibilityMode.parse("always-hidden"), .alwaysHidden)
+        XCTAssertEqual(VisibilityMode.parse("floatingShelf"), .floatingShelf)
+    }
+}
+
+final class CLIParserTests: XCTestCase {
+    func testParsesStatusAndListJSONFlags() throws {
+        XCTAssertEqual(try CLIParser.parse(["status", "--json"]), .status(json: true))
+        XCTAssertEqual(try CLIParser.parse(["list", "--json"]), .list(json: true))
+        XCTAssertEqual(try CLIParser.parse(["status"]), .status(json: false))
+    }
+
+    func testParsesLiveCommands() throws {
+        XCTAssertEqual(try CLIParser.parse(["show"]), .show)
+        XCTAssertEqual(try CLIParser.parse(["hide"]), .hide)
+        XCTAssertEqual(try CLIParser.parse(["toggle"]), .toggle)
+        XCTAssertEqual(try CLIParser.parse(["rescan"]), .rescan)
+        XCTAssertEqual(try CLIParser.parse(["open-settings"]), .openSettings)
+        XCTAssertEqual(try CLIParser.parse(["permissions"]), .permissions)
+    }
+
+    func testParsesSetCommand() throws {
+        XCTAssertEqual(
+            try CLIParser.parse(["set", "Dropbox|status-item|1170", "floating-shelf"]),
+            .set(itemId: "Dropbox|status-item|1170", mode: .floatingShelf)
+        )
+    }
+
+    func testRejectsInvalidSetMode() {
+        XCTAssertThrowsError(try CLIParser.parse(["set", "id", "sometimes"])) { error in
+            XCTAssertEqual(error as? CLIParserError, .invalidMode("sometimes"))
+        }
+    }
+}
+
+final class BarShelfSettingsStoreTests: XCTestCase {
+    func testStoresModesAndLastSeenItemsInInjectedDefaults() {
+        let defaults = UserDefaults(suiteName: "com.gregagi.barshelf.tests.\(UUID().uuidString)")!
+        var store = BarShelfSettingsStore(defaults: defaults)
+        let item = MenuBarItemSnapshot(id: "Dropbox|status-item|1170", owner: "Dropbox", name: "", x: 1170)
+
+        store.lastSeenItems = [item]
+        store.setMode(.alwaysHidden, for: item.id)
+        store.shelfVisible = true
+        store.useAdvancedRouting = false
+
+        XCTAssertEqual(store.lastSeenItems, [item])
+        XCTAssertEqual(store.mode(for: item.id), .alwaysHidden)
+        XCTAssertTrue(store.shelfVisible)
+        XCTAssertFalse(store.useAdvancedRouting)
+        XCTAssertNotNil(store.lastScanAt)
+    }
+}

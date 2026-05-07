@@ -17,67 +17,65 @@ struct ManagedMenuBarItem: Identifiable, Equatable {
 }
 
 final class Preferences {
-    private enum Key {
-        static let collapsed = "collapsed.v1"
-        static let spacerWidth = "spacerWidth.v1"
-        static let alwaysHiddenEnabled = "alwaysHiddenEnabled.v1"
-        static let autoCollapseSeconds = "autoCollapseSeconds.v1"
-        static let itemModes = "itemModes.v2"
-        static let useAdvancedRouting = "useAdvancedRouting.v2"
-    }
+    private let store = BarShelfSettingsStore()
+    private let defaults = BarShelfDefaults.store()
 
     var collapsed: Bool {
-        get { UserDefaults.standard.object(forKey: Key.collapsed) as? Bool ?? false }
-        set { UserDefaults.standard.set(newValue, forKey: Key.collapsed) }
+        get { defaults.object(forKey: BarShelfDefaults.Key.collapsed) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: BarShelfDefaults.Key.collapsed) }
     }
 
     var spacerWidth: CGFloat {
         get {
-            let value = UserDefaults.standard.double(forKey: Key.spacerWidth)
+            let value = defaults.double(forKey: BarShelfDefaults.Key.spacerWidth)
             return value > 0 ? CGFloat(value) : 460
         }
-        set { UserDefaults.standard.set(Double(newValue), forKey: Key.spacerWidth) }
+        set { defaults.set(Double(newValue), forKey: BarShelfDefaults.Key.spacerWidth) }
     }
 
     var alwaysHiddenEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: Key.alwaysHiddenEnabled) as? Bool ?? false }
-        set { UserDefaults.standard.set(newValue, forKey: Key.alwaysHiddenEnabled) }
+        get { defaults.object(forKey: BarShelfDefaults.Key.alwaysHiddenEnabled) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: BarShelfDefaults.Key.alwaysHiddenEnabled) }
     }
 
     var autoCollapseSeconds: TimeInterval {
         get {
-            let value = UserDefaults.standard.double(forKey: Key.autoCollapseSeconds)
+            let value = defaults.double(forKey: BarShelfDefaults.Key.autoCollapseSeconds)
             return value > 0 ? value : 8
         }
-        set { UserDefaults.standard.set(newValue, forKey: Key.autoCollapseSeconds) }
+        set { defaults.set(newValue, forKey: BarShelfDefaults.Key.autoCollapseSeconds) }
     }
 
     var useAdvancedRouting: Bool {
-        get { UserDefaults.standard.object(forKey: Key.useAdvancedRouting) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: Key.useAdvancedRouting) }
+        get { store.useAdvancedRouting }
+        set { store.useAdvancedRouting = newValue }
+    }
+
+    var shelfVisible: Bool {
+        get { store.shelfVisible }
+        set { store.shelfVisible = newValue }
     }
 
     var itemModes: [String: VisibilityMode] {
-        get {
-            VisibilityModeCodec.decode(UserDefaults.standard.data(forKey: Key.itemModes))
-        }
-        set {
-            if let data = try? VisibilityModeCodec.encode(newValue) {
-                UserDefaults.standard.set(data, forKey: Key.itemModes)
-            }
-        }
+        get { store.itemModes }
+        set { store.itemModes = newValue }
     }
 
     func mode(for item: ManagedMenuBarItem) -> VisibilityMode {
-        itemModes[item.id] ?? .alwaysShown
+        store.mode(for: item.id)
     }
 
     func setMode(_ mode: VisibilityMode, for item: ManagedMenuBarItem) {
-        var modes = itemModes
-        modes[item.id] = mode
-        itemModes = modes
+        store.setMode(mode, for: item.id)
+    }
+
+    func saveLastSeenItems(_ items: [ManagedMenuBarItem]) {
+        store.lastSeenItems = items.map { item in
+            MenuBarItemSnapshot(id: item.id, owner: item.owner, name: item.name, x: Int(item.bounds.minX.rounded()))
+        }
     }
 }
+
 
 final class PermissionManager {
     static var isAccessibilityTrusted: Bool {
@@ -319,12 +317,12 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var scanTimer: Timer?
     private var collapseTimer: Timer?
-    private var shelfVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         floatingShelf = FloatingShelfWindowController(controller: self)
         createStatusItems()
+        registerCLICommandListener()
         applyLegacyState(animated: false)
         rescanAndApply()
         scanTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
@@ -371,12 +369,12 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
             statusMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
             return
         }
-        shelfVisible.toggle()
+        preferences.shelfVisible.toggle()
         rescanAndApply()
     }
 
     @objc private func toggleShelfFromMenu() {
-        shelfVisible.toggle()
+        preferences.shelfVisible.toggle()
         rescanAndApply()
     }
 
@@ -402,12 +400,13 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
 
     private func rescanAndApply() {
         managedItems = scanner.scan()
+        preferences.saveLastSeenItems(managedItems)
         guard preferences.useAdvancedRouting else {
             floatingShelf.hide()
             return
         }
         overlays.apply(items: managedItems, preferences: preferences)
-        if shelfVisible {
+        if preferences.shelfVisible {
             floatingShelf.update(items: managedItems, preferences: preferences)
             toggleItem.button?.title = "▦"
             toggleItem.button?.toolTip = "Hide BarShelf hidden icons"
@@ -415,6 +414,39 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
             floatingShelf.hide()
             toggleItem.button?.title = "▦"
             toggleItem.button?.toolTip = "Show BarShelf hidden icons"
+        }
+    }
+
+    private func registerCLICommandListener() {
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleCLICommand(_:)),
+            name: BarShelfIPC.notificationName,
+            object: nil
+        )
+    }
+
+    @objc private func handleCLICommand(_ notification: Notification) {
+        guard let raw = notification.userInfo?["command"] as? String,
+              let command = BarShelfIPC.Command(rawValue: raw) else { return }
+
+        switch command {
+        case .show:
+            preferences.shelfVisible = true
+            rescanAndApply()
+        case .hide:
+            preferences.shelfVisible = false
+            rescanAndApply()
+        case .toggle:
+            preferences.shelfVisible.toggle()
+            rescanAndApply()
+        case .rescan:
+            rescanAndApply()
+            rebuildSettingsWindowIfOpen()
+        case .openSettings:
+            openSettings()
+        case .permissions:
+            requestPermissions()
         }
     }
 

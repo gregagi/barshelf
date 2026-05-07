@@ -42,6 +42,33 @@ Open BarShelf Settings and assign each detected menu bar item to one of the thre
 If an item cannot be detected reliably, use fallback separator mode: hold `Command (⌘)`, drag menu bar icons to the left of BarShelf's `│` separator, then collapse/expand the shelf.
 
 
+
+## CLI
+
+BarShelf also ships a native Swift CLI for developers, prosumers, and AI agents. In the app bundle it lives at:
+
+```bash
+/Applications/BarShelf.app/Contents/MacOS/barshelf
+```
+
+Initial commands:
+
+```bash
+barshelf status --json
+barshelf list --json
+barshelf show
+barshelf hide
+barshelf toggle
+barshelf rescan
+barshelf set <item-id> always-shown
+barshelf set <item-id> floating-shelf
+barshelf set <item-id> always-hidden
+barshelf open-settings
+barshelf permissions
+```
+
+The CLI and app share the same settings store (`com.gregagi.barshelf`). Live commands are delivered to the running app through macOS distributed notifications, so no daemon or local server is required.
+
 ## Testing
 
 BarShelf uses SwiftPM XCTest for headless logic that can run reliably on GitHub-hosted macOS runners. The CI pipeline runs on every pull request and on pushes to `main`:

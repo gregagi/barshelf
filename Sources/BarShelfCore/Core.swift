@@ -12,6 +12,21 @@ public enum VisibilityMode: String, CaseIterable, Codable, Equatable {
         case .alwaysHidden: return "Always hidden"
         }
     }
+
+    public var cliName: String {
+        switch self {
+        case .alwaysShown: return "always-shown"
+        case .floatingShelf: return "floating-shelf"
+        case .alwaysHidden: return "always-hidden"
+        }
+    }
+
+    public static func parse(_ value: String) -> VisibilityMode? {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return allCases.first { mode in
+            mode.rawValue.lowercased() == normalized || mode.cliName == normalized
+        }
+    }
 }
 
 public struct MenuBarItemIdentity: Equatable {
@@ -36,6 +51,24 @@ public struct MenuBarItemIdentity: Equatable {
     }
 }
 
+public struct MenuBarItemSnapshot: Codable, Equatable, Identifiable {
+    public let id: String
+    public let owner: String
+    public let name: String
+    public let x: Int
+
+    public init(id: String, owner: String, name: String, x: Int) {
+        self.id = id
+        self.owner = owner
+        self.name = name
+        self.x = x
+    }
+
+    public var displayName: String {
+        MenuBarItemIdentity(owner: owner, name: name, roundedX: x).displayName
+    }
+}
+
 public enum VisibilityModeCodec {
     public static func encode(_ modes: [String: VisibilityMode]) throws -> Data {
         let raw = modes.mapValues(\.rawValue)
@@ -46,5 +79,187 @@ public enum VisibilityModeCodec {
         guard let data,
               let raw = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
         return raw.compactMapValues(VisibilityMode.init(rawValue:))
+    }
+}
+
+public enum BarShelfDefaults {
+    public static let suiteName = "com.gregagi.barshelf"
+
+    public enum Key {
+        public static let collapsed = "collapsed.v1"
+        public static let spacerWidth = "spacerWidth.v1"
+        public static let alwaysHiddenEnabled = "alwaysHiddenEnabled.v1"
+        public static let autoCollapseSeconds = "autoCollapseSeconds.v1"
+        public static let itemModes = "itemModes.v2"
+        public static let useAdvancedRouting = "useAdvancedRouting.v2"
+        public static let shelfVisible = "shelfVisible.v1"
+        public static let lastSeenItems = "lastSeenItems.v1"
+        public static let lastScanAt = "lastScanAt.v1"
+    }
+
+    public static func store() -> UserDefaults {
+        UserDefaults(suiteName: suiteName) ?? .standard
+    }
+}
+
+public struct BarShelfSettingsStore {
+    private let defaults: UserDefaults
+
+    public init(defaults: UserDefaults = BarShelfDefaults.store()) {
+        self.defaults = defaults
+    }
+
+    public var useAdvancedRouting: Bool {
+        get { defaults.object(forKey: BarShelfDefaults.Key.useAdvancedRouting) as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: BarShelfDefaults.Key.useAdvancedRouting) }
+    }
+
+    public var shelfVisible: Bool {
+        get { defaults.object(forKey: BarShelfDefaults.Key.shelfVisible) as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: BarShelfDefaults.Key.shelfVisible) }
+    }
+
+    public var itemModes: [String: VisibilityMode] {
+        get { VisibilityModeCodec.decode(defaults.data(forKey: BarShelfDefaults.Key.itemModes)) }
+        nonmutating set {
+            if let data = try? VisibilityModeCodec.encode(newValue) {
+                defaults.set(data, forKey: BarShelfDefaults.Key.itemModes)
+            }
+        }
+    }
+
+    public var lastSeenItems: [MenuBarItemSnapshot] {
+        get {
+            guard let data = defaults.data(forKey: BarShelfDefaults.Key.lastSeenItems),
+                  let items = try? JSONDecoder().decode([MenuBarItemSnapshot].self, from: data) else { return [] }
+            return items
+        }
+        nonmutating set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: BarShelfDefaults.Key.lastSeenItems)
+                defaults.set(Date().timeIntervalSince1970, forKey: BarShelfDefaults.Key.lastScanAt)
+            }
+        }
+    }
+
+    public var lastScanAt: Date? {
+        let timestamp = defaults.double(forKey: BarShelfDefaults.Key.lastScanAt)
+        return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
+    }
+
+    public func mode(for itemId: String) -> VisibilityMode {
+        itemModes[itemId] ?? .alwaysShown
+    }
+
+    public func setMode(_ mode: VisibilityMode, for itemId: String) {
+        var modes = itemModes
+        modes[itemId] = mode
+        itemModes = modes
+    }
+
+    public func synchronize() {
+        defaults.synchronize()
+    }
+}
+
+public enum BarShelfIPC {
+    public static let notificationName = Notification.Name("com.gregagi.barshelf.cli.command")
+
+    public enum Command: String, CaseIterable {
+        case show
+        case hide
+        case toggle
+        case rescan
+        case openSettings = "open-settings"
+        case permissions
+    }
+}
+
+public enum CLICommand: Equatable {
+    case help
+    case status(json: Bool)
+    case list(json: Bool)
+    case show
+    case hide
+    case toggle
+    case rescan
+    case openSettings
+    case permissions
+    case set(itemId: String, mode: VisibilityMode)
+}
+
+public enum CLIParserError: Error, Equatable, CustomStringConvertible {
+    case unknownCommand(String)
+    case missingItemId
+    case missingMode
+    case invalidMode(String)
+    case tooManyArguments([String])
+
+    public var description: String {
+        switch self {
+        case .unknownCommand(let command): return "Unknown command: \(command)"
+        case .missingItemId: return "Missing item id"
+        case .missingMode: return "Missing visibility mode"
+        case .invalidMode(let mode): return "Invalid visibility mode: \(mode)"
+        case .tooManyArguments(let args): return "Too many arguments: \(args.joined(separator: " "))"
+        }
+    }
+}
+
+public enum CLIParser {
+    public static func parse(_ arguments: [String]) throws -> CLICommand {
+        var args = arguments
+        let json = args.removeAllFlags("--json")
+
+        guard let command = args.first else { return .help }
+        args.removeFirst()
+
+        switch command {
+        case "help", "--help", "-h":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .help
+        case "status":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .status(json: json)
+        case "list":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .list(json: json)
+        case "show":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .show
+        case "hide":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .hide
+        case "toggle":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .toggle
+        case "rescan":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .rescan
+        case "open-settings":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .openSettings
+        case "permissions":
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            return .permissions
+        case "set":
+            guard let itemId = args.first else { throw CLIParserError.missingItemId }
+            args.removeFirst()
+            guard let modeValue = args.first else { throw CLIParserError.missingMode }
+            args.removeFirst()
+            guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+            guard let mode = VisibilityMode.parse(modeValue) else { throw CLIParserError.invalidMode(modeValue) }
+            return .set(itemId: itemId, mode: mode)
+        default:
+            throw CLIParserError.unknownCommand(command)
+        }
+    }
+}
+
+private extension Array where Element == String {
+    mutating func removeAllFlags(_ flag: String) -> Bool {
+        let originalCount = count
+        self = filter { $0 != flag }
+        return count != originalCount
     }
 }
