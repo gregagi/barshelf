@@ -102,7 +102,7 @@ final class PermissionManager {
     }
 
     static func requestAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt as String: true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 
