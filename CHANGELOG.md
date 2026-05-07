@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-05-07
 
 - Added advanced per-item routing settings with three modes: always shown, floating shelf, and always hidden.
 - Added CGWindow-based menu bar item discovery, permission prompts, visual masking overlays, and a translucent floating shelf below the menu bar.
