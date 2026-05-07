@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.3 - 2026-05-07
 
 - Added generated BarShelf app icon/logo assets.
 - Wired the icon into the macOS app bundle and DMG volume metadata.
