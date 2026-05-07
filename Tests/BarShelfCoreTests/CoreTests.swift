@@ -115,3 +115,29 @@ final class BarShelfSettingsStoreTests: XCTestCase {
         XCTAssertNotNil(store.lastScanAt)
     }
 }
+
+final class CLIInstallParserTests: XCTestCase {
+    func testParsesInstallCLIWithDefaults() throws {
+        XCTAssertEqual(try CLIParser.parse(["install-cli"]), .installCLI(path: nil, force: false))
+    }
+
+    func testParsesInstallCLIWithPathAndForce() throws {
+        XCTAssertEqual(
+            try CLIParser.parse(["install-cli", "--path", "/tmp/barshelf", "--force"]),
+            .installCLI(path: "/tmp/barshelf", force: true)
+        )
+    }
+
+    func testParsesUninstallCLIWithPath() throws {
+        XCTAssertEqual(
+            try CLIParser.parse(["uninstall-cli", "--path", "/tmp/barshelf"]),
+            .uninstallCLI(path: "/tmp/barshelf")
+        )
+    }
+
+    func testRejectsMissingInstallPathValue() {
+        XCTAssertThrowsError(try CLIParser.parse(["install-cli", "--path"])) { error in
+            XCTAssertEqual(error as? CLIParserError, .missingPathValue)
+        }
+    }
+}

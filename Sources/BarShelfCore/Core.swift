@@ -185,6 +185,8 @@ public enum CLICommand: Equatable {
     case rescan
     case openSettings
     case permissions
+    case installCLI(path: String?, force: Bool)
+    case uninstallCLI(path: String?)
     case set(itemId: String, mode: VisibilityMode)
 }
 
@@ -194,6 +196,7 @@ public enum CLIParserError: Error, Equatable, CustomStringConvertible {
     case missingMode
     case invalidMode(String)
     case tooManyArguments([String])
+    case missingPathValue
 
     public var description: String {
         switch self {
@@ -202,6 +205,7 @@ public enum CLIParserError: Error, Equatable, CustomStringConvertible {
         case .missingMode: return "Missing visibility mode"
         case .invalidMode(let mode): return "Invalid visibility mode: \(mode)"
         case .tooManyArguments(let args): return "Too many arguments: \(args.joined(separator: " "))"
+        case .missingPathValue: return "Missing value for --path"
         }
     }
 }
@@ -242,6 +246,12 @@ public enum CLIParser {
         case "permissions":
             guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
             return .permissions
+        case "install-cli":
+            let parsed = try parseInstallOptions(args)
+            return .installCLI(path: parsed.path, force: parsed.force)
+        case "uninstall-cli":
+            let parsed = try parseInstallOptions(args, allowForce: false)
+            return .uninstallCLI(path: parsed.path)
         case "set":
             guard let itemId = args.first else { throw CLIParserError.missingItemId }
             args.removeFirst()
@@ -254,6 +264,31 @@ public enum CLIParser {
             throw CLIParserError.unknownCommand(command)
         }
     }
+    private static func parseInstallOptions(_ args: [String], allowForce: Bool = true) throws -> (path: String?, force: Bool) {
+        var remaining = args
+        var path: String?
+        var force = false
+
+        while let arg = remaining.first {
+            remaining.removeFirst()
+            switch arg {
+            case "--force" where allowForce:
+                force = true
+            case "--path":
+                guard let value = remaining.first else { throw CLIParserError.missingPathValue }
+                remaining.removeFirst()
+                path = value
+            default:
+                throw CLIParserError.tooManyArguments([arg] + remaining)
+            }
+        }
+
+        return (path, force)
+    }
+}
+
+public enum CLIInstallDefaults {
+    public static let defaultSymlinkPath = "/usr/local/bin/barshelf"
 }
 
 private extension Array where Element == String {

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added `barshelf install-cli` and `barshelf uninstall-cli` helpers for creating/removing a PATH symlink to the app-bundled CLI.
+- Documented default `/usr/local/bin/barshelf` install path plus user-writable `--path` fallback.
+
 ## 0.3.0 - 2026-05-07
 
 - Added native Swift `barshelf` CLI executable for status/list JSON output, shelf show/hide/toggle, rescan, settings, permissions, and per-item visibility mode updates.

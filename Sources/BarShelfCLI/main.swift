@@ -63,12 +63,82 @@ struct BarShelfCLI {
         case .permissions:
             post(.permissions)
             print("permission prompt requested")
+        case .installCLI(let path, let force):
+            let result = try installCLI(path: path, force: force)
+            print("installed: \(result.linkPath) -> \(result.executablePath)")
+        case .uninstallCLI(let path):
+            let result = try uninstallCLI(path: path)
+            print("uninstalled: \(result.linkPath)")
         case .set(let itemId, let mode):
             store.setMode(mode, for: itemId)
             store.synchronize()
             post(.rescan)
             print("\(itemId) -> \(mode.cliName)")
         }
+    }
+
+
+    struct InstallResult {
+        let executablePath: String
+        let linkPath: String
+    }
+
+    static func installCLI(path: String?, force: Bool) throws -> InstallResult {
+        let executablePath = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
+        let linkPath = path ?? CLIInstallDefaults.defaultSymlinkPath
+        let linkURL = URL(fileURLWithPath: linkPath)
+        let parent = linkURL.deletingLastPathComponent()
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: executablePath) else {
+            throw CLIError("cannot find current executable at \(executablePath)")
+        }
+        guard fileManager.fileExists(atPath: parent.path) else {
+            throw CLIError("install directory does not exist: \(parent.path)")
+        }
+        guard fileManager.isWritableFile(atPath: parent.path) else {
+            throw CLIError("install directory is not writable: \(parent.path). Try a user-writable --path, or create the symlink with sudo.", exitCode: 13)
+        }
+
+        if fileManager.fileExists(atPath: linkPath) || isSymlink(linkPath) {
+            if force {
+                try fileManager.removeItem(atPath: linkPath)
+            } else if symlinkDestination(linkPath) == executablePath {
+                return InstallResult(executablePath: executablePath, linkPath: linkPath)
+            } else {
+                throw CLIError("refusing to overwrite existing file: \(linkPath). Re-run with --force if this is intentional.", exitCode: 17)
+            }
+        }
+
+        try fileManager.createSymbolicLink(atPath: linkPath, withDestinationPath: executablePath)
+        return InstallResult(executablePath: executablePath, linkPath: linkPath)
+    }
+
+    static func uninstallCLI(path: String?) throws -> InstallResult {
+        let executablePath = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
+        let linkPath = path ?? CLIInstallDefaults.defaultSymlinkPath
+        let fileManager = FileManager.default
+
+        guard isSymlink(linkPath) else {
+            throw CLIError("not a BarShelf CLI symlink: \(linkPath)", exitCode: 66)
+        }
+        let destination = symlinkDestination(linkPath) ?? ""
+        guard destination.hasSuffix("/barshelf") || destination == executablePath else {
+            throw CLIError("refusing to remove symlink with unexpected destination: \(destination)", exitCode: 66)
+        }
+
+        try fileManager.removeItem(atPath: linkPath)
+        return InstallResult(executablePath: destination, linkPath: linkPath)
+    }
+
+    static func isSymlink(_ path: String) -> Bool {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let type = attrs[.type] as? FileAttributeType else { return false }
+        return type == .typeSymbolicLink
+    }
+
+    static func symlinkDestination(_ path: String) -> String? {
+        try? FileManager.default.destinationOfSymbolicLink(atPath: path)
     }
 
     static func post(_ command: BarShelfIPC.Command) {
@@ -151,5 +221,7 @@ struct BarShelfCLI {
       barshelf set <item-id> <always-shown|floating-shelf|always-hidden>
       barshelf open-settings
       barshelf permissions
+      barshelf install-cli [--path /usr/local/bin/barshelf] [--force]
+      barshelf uninstall-cli [--path /usr/local/bin/barshelf]
     """
 }

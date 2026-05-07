@@ -65,6 +65,20 @@ barshelf set <item-id> floating-shelf
 barshelf set <item-id> always-hidden
 barshelf open-settings
 barshelf permissions
+barshelf install-cli
+barshelf uninstall-cli
+```
+
+To make the CLI available as `barshelf` from your shell, run it once from the app bundle:
+
+```bash
+/Applications/BarShelf.app/Contents/MacOS/barshelf install-cli
+```
+
+By default this creates `/usr/local/bin/barshelf -> /Applications/BarShelf.app/Contents/MacOS/barshelf`. If `/usr/local/bin` is not writable, use a user-writable location already on your PATH:
+
+```bash
+/Applications/BarShelf.app/Contents/MacOS/barshelf install-cli --path "$HOME/.local/bin/barshelf"
 ```
 
 The CLI and app share the same settings store (`com.gregagi.barshelf`). Live commands are delivered to the running app through macOS distributed notifications, so no daemon or local server is required.
@@ -95,7 +109,7 @@ To create an app bundle locally on macOS:
 
 ## Release
 
-Create a GitHub release tag like `v0.2.0`. The release workflow builds on `macos-14`, creates `BarShelf.app`, packages `BarShelf.dmg`, and uploads it to the release assets.
+Create a GitHub release tag like `v0.3.1`. The release workflow builds on `macos-14`, creates `BarShelf.app`, packages `BarShelf.dmg`, and uploads it to the release assets.
 
 ## Roadmap
 
