@@ -16,8 +16,9 @@ rm -rf dist
 swift build -c "$CONFIGURATION"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$BUILD_DIR/barshelf" "$MACOS_DIR/barshelf"
 cp "$ROOT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
-chmod +x "$MACOS_DIR/$APP_NAME"
+chmod +x "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/barshelf"
 
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP_DIR"

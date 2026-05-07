@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added native Swift `barshelf` CLI executable for status/list JSON output, shelf show/hide/toggle, rescan, settings, permissions, and per-item visibility mode updates.
+- Added shared app/CLI settings storage under `com.gregagi.barshelf` and distributed-notification IPC for live app commands.
+- Packaged the CLI inside `BarShelf.app/Contents/MacOS/barshelf`.
 - Added a `BarShelfCore` SwiftPM library target with XCTest coverage for visibility modes, menu bar item identity, and persisted routing mode serialization.
 - Updated PR CI to run `swift test` with code coverage before release/app bundle builds.
 

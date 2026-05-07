@@ -6,7 +6,8 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [
         .library(name: "BarShelfCore", targets: ["BarShelfCore"]),
-        .executable(name: "BarShelf", targets: ["BarShelf"])
+        .executable(name: "BarShelf", targets: ["BarShelf"]),
+        .executable(name: "barshelf", targets: ["barshelf"])
     ],
     targets: [
         .target(
@@ -17,6 +18,11 @@ let package = Package(
             name: "BarShelf",
             dependencies: ["BarShelfCore"],
             path: "Sources/BarShelf"
+        ),
+        .executableTarget(
+            name: "barshelf",
+            dependencies: ["BarShelfCore"],
+            path: "Sources/barshelf"
         ),
         .testTarget(
             name: "BarShelfCoreTests",
