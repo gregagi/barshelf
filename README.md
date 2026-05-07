@@ -31,10 +31,12 @@ Unsigned builds may require right-click → Open the first time.
 
 ## Usage
 
+BarShelf’s own `▦` icon always stays visible in the macOS menu bar. Click it to reveal or hide the floating shelf.
+
 Open BarShelf Settings and assign each detected menu bar item to one of the three modes:
 
 - **Always shown** keeps the original icon visible in the macOS menu bar.
-- **Floating shelf** masks the original icon and shows it in BarShelf’s shelf below the menu bar.
+- **Floating shelf** masks the original icon and shows it in BarShelf’s shelf below the menu bar when you click the BarShelf icon.
 - **Always hidden** masks the original icon and does not show it in the shelf.
 
 If an item cannot be detected reliably, use fallback separator mode: hold `Command (⌘)`, drag menu bar icons to the left of BarShelf's `│` separator, then collapse/expand the shelf.

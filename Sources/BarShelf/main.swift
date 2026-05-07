@@ -337,7 +337,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var scanTimer: Timer?
     private var collapseTimer: Timer?
-    private var shelfVisible = true
+    private var shelfVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -362,13 +362,13 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         configureButton(separatorItem.button, title: "│", help: "BarShelf separator. Hold Command and drag menu bar icons left of this marker to hide them when collapsed.")
 
         toggleItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        configureButton(toggleItem.button, title: "▾", help: "Toggle BarShelf")
+        configureButton(toggleItem.button, title: "▦", help: "Show BarShelf hidden icons")
         toggleItem.button?.target = self
         toggleItem.button?.action = #selector(toggleShelf)
         toggleItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         statusMenu = NSMenu()
-        statusMenu.addItem(NSMenuItem(title: "Toggle floating shelf", action: #selector(toggleShelfFromMenu), keyEquivalent: ""))
+        statusMenu.addItem(NSMenuItem(title: "Show / hide hidden icons", action: #selector(toggleShelfFromMenu), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ","))
         statusMenu.addItem(NSMenuItem(title: "Rescan menu bar items", action: #selector(rescanFromMenu), keyEquivalent: "r"))
         statusMenu.addItem(NSMenuItem(title: "Request permissions", action: #selector(requestPermissions), keyEquivalent: ""))
@@ -427,10 +427,12 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         overlays.apply(items: managedItems, preferences: preferences)
         if shelfVisible {
             floatingShelf.update(items: managedItems, preferences: preferences)
-            toggleItem.button?.title = "▴"
+            toggleItem.button?.title = "▦"
+            toggleItem.button?.toolTip = "Hide BarShelf hidden icons"
         } else {
             floatingShelf.hide()
-            toggleItem.button?.title = "▾"
+            toggleItem.button?.title = "▦"
+            toggleItem.button?.toolTip = "Show BarShelf hidden icons"
         }
     }
 
@@ -644,7 +646,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     @objc private func showHelp() {
         let alert = NSAlert()
         alert.messageText = "How BarShelf works"
-        alert.informativeText = "Use Settings to route detected icons into one of three modes: Always shown, Floating shelf, or Always hidden. Floating/hidden items are visually masked in the menu bar. Floating shelf items are shown in a translucent shelf below the menu bar and click through to the original item.\n\nIf an item cannot be detected reliably, use the fallback separator mode: hold Command (⌘), drag icons left of BarShelf's │ separator, then collapse the shelf."
+        alert.informativeText = "BarShelf’s own ▦ icon always stays in the menu bar. Click it to show or hide the floating shelf of items routed to Floating shelf mode. Use Settings to route detected icons into one of three modes: Always shown, Floating shelf, or Always hidden. Floating/hidden items are visually masked in the menu bar. Floating shelf items are shown in a translucent shelf below the menu bar and click through to the original item.\n\nIf an item cannot be detected reliably, use the fallback separator mode: hold Command (⌘), drag icons left of BarShelf's │ separator, then collapse the shelf."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
