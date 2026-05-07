@@ -365,13 +365,16 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     private var setupFinishButton: NSButton?
     private var setupLaunchAtLoginCheckbox: NSButton?
     private var setupTimer: Timer?
+    private var settingsShortcutMonitor: Any?
     private var scanTimer: Timer?
     private var collapseTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         floatingShelf = FloatingShelfWindowController(controller: self)
+        createAppMenu()
         createStatusItems()
+        registerSettingsShortcut()
         registerCLICommandListener()
         applyLegacyState(animated: false)
         rescanAndApply()
@@ -379,6 +382,28 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
             self?.rescanAndApply()
         }
         showSetupIfNeeded()
+    }
+
+    private func createAppMenu() {
+        let mainMenu = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "BarShelf")
+
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(NSMenuItem(title: "Setup", action: #selector(openSetup), keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        let quitItem = NSMenuItem(title: "Quit BarShelf", action: #selector(quit), keyEquivalent: "q")
+        quitItem.keyEquivalentModifierMask = [.command]
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+        appMenu.items.forEach { $0.target = self }
+
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+        NSApp.mainMenu = mainMenu
     }
 
     private func createStatusItems() {
@@ -415,6 +440,16 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         button?.toolTip = help
         button?.font = .systemFont(ofSize: 15, weight: .medium)
     }
+
+    private func registerSettingsShortcut() {
+        settingsShortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+                  event.charactersIgnoringModifiers == "," else { return event }
+            self?.openSettings()
+            return nil
+        }
+    }
+
 
     @objc private func toggleShelf() {
         if NSApp.currentEvent?.type == .rightMouseUp, let button = toggleItem.button {

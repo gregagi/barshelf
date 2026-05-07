@@ -47,7 +47,7 @@ Unsigned builds may require right-click → Open the first time. BarShelf is a m
 
 BarShelf’s own `▦` icon always stays visible in the macOS menu bar after launch. Click it to reveal or hide the floating shelf. Enable **Launch BarShelf at login** in first-run setup or Settings if you want BarShelf to start automatically when you sign in.
 
-Open BarShelf Settings and assign each detected menu bar item to one of the three modes:
+Open BarShelf Settings with the BarShelf menu item or `Command-comma` while BarShelf is active, then assign each detected menu bar item to one of the three modes:
 
 - **Always shown** keeps the original icon visible in the macOS menu bar.
 - **Floating shelf** masks the original icon and shows it in BarShelf’s shelf below the menu bar when you click the BarShelf icon.

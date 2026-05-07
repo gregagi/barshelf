@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5 - 2026-05-07
+
+- Added Command-comma keyboard shortcut to open BarShelf Settings while the app is active.
+- Added a minimal app menu with Settings, Setup, and Quit commands.
+
 ## 0.3.4 - 2026-05-07
 
 - Added a first-run setup window so opening BarShelf is visible even before menu bar permissions are granted.
