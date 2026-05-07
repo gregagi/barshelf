@@ -58,8 +58,9 @@ brew install --cask barshelf</code></pre>
         <li>Download <a href="https://github.com/LVTD-LLC/barshelf/releases/latest">BarShelf.dmg from the latest release</a>.</li>
         <li>Drag <strong>BarShelf.app</strong> into Applications.</li>
         <li>Launch BarShelf. Because builds are unsigned until Apple signing secrets are configured, macOS may require right-click → Open the first time.</li>
+        <li>Use the first-run setup window to grant Accessibility permission and choose whether BarShelf should launch at login.</li>
       </ol>
-      <p>After launching, open Settings from the BarShelf menu bar item to configure visibility modes and permissions.</p>
+      <p>BarShelf is a menu bar app, so it does not stay in the Dock. First launch opens a setup window; after setup, use the BarShelf menu bar item to configure visibility modes and permissions.</p>
     </section>
 
     <section id="usage" class="section">
@@ -82,7 +83,7 @@ brew install --cask barshelf</code></pre>
         <li><strong>Accessibility</strong> lets BarShelf forward clicks from the floating shelf to the original menu bar item.</li>
         <li><strong>Screen Recording / Screen Capture</strong> lets BarShelf capture menu bar icon images for the shelf.</li>
       </ul>
-      <p>Use Settings → Request permissions, then quit and reopen BarShelf after granting them.</p>
+      <p>On first launch, BarShelf shows live permission status, buttons for the relevant macOS Privacy settings panes, and a Finish Setup button that unlocks after Accessibility is granted. You can reopen setup later from the BarShelf menu.</p>
     </section>
 
     <section id="cli" class="section">

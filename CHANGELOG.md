@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4 - 2026-05-07
+
+- Added a first-run setup window so opening BarShelf is visible even before menu bar permissions are granted.
+- Shows live Accessibility and Screen Recording permission status with buttons that open the relevant macOS Privacy settings panes.
+- Added a Launch at Login checkbox to first-run setup.
+- Keeps Finish Setup disabled until Accessibility permission is granted.
+
 ## 0.3.3 - 2026-05-07
 
 - Added generated BarShelf app icon/logo assets.

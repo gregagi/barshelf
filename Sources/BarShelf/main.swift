@@ -62,6 +62,11 @@ final class Preferences {
         set { store.itemModes = newValue }
     }
 
+    var setupCompleted: Bool {
+        get { defaults.object(forKey: BarShelfDefaults.Key.setupCompleted) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: BarShelfDefaults.Key.setupCompleted) }
+    }
+
     func mode(for item: ManagedMenuBarItem) -> VisibilityMode {
         store.mode(for: item.id)
     }
@@ -112,6 +117,10 @@ final class PermissionManager {
         AXIsProcessTrustedWithOptions(options)
     }
 
+    static func openAccessibilitySettings() {
+        openSettings(url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+    }
+
     static var hasScreenCaptureAccess: Bool {
         if #available(macOS 10.15, *) {
             return CGPreflightScreenCaptureAccess()
@@ -123,6 +132,15 @@ final class PermissionManager {
         if #available(macOS 10.15, *) {
             CGRequestScreenCaptureAccess()
         }
+    }
+
+    static func openScreenCaptureSettings() {
+        openSettings(url: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+    }
+
+    private static func openSettings(url: String) {
+        guard let url = URL(string: url) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 
@@ -341,6 +359,12 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     private var alwaysHiddenSeparatorItem: NSStatusItem!
     private var statusMenu: NSMenu!
     private var settingsWindow: NSWindow?
+    private var setupWindow: NSWindow?
+    private var setupAccessibilityValue: NSTextField?
+    private var setupScreenCaptureValue: NSTextField?
+    private var setupFinishButton: NSButton?
+    private var setupLaunchAtLoginCheckbox: NSButton?
+    private var setupTimer: Timer?
     private var scanTimer: Timer?
     private var collapseTimer: Timer?
 
@@ -354,6 +378,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         scanTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
             self?.rescanAndApply()
         }
+        showSetupIfNeeded()
     }
 
     private func createStatusItems() {
@@ -376,6 +401,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         statusMenu = NSMenu()
         statusMenu.addItem(NSMenuItem(title: "Show / hide hidden icons", action: #selector(toggleShelfFromMenu), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ","))
+        statusMenu.addItem(NSMenuItem(title: "Setup", action: #selector(openSetup), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "Rescan menu bar items", action: #selector(rescanFromMenu), keyEquivalent: "r"))
         statusMenu.addItem(NSMenuItem(title: "Request permissions", action: #selector(requestPermissions), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "How to Use", action: #selector(showHelp), keyEquivalent: "?"))
@@ -500,6 +526,180 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
               let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else { return }
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
+    }
+
+    private func showSetupIfNeeded() {
+        guard !preferences.setupCompleted || !PermissionManager.isAccessibilityTrusted else { return }
+        openSetup()
+    }
+
+    @objc private func openSetup() {
+        buildSetupWindow()
+        setupWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        startSetupStatusUpdates()
+    }
+
+    private func buildSetupWindow() {
+        if setupWindow != nil {
+            updateSetupStatus()
+            return
+        }
+
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 560, height: 430))
+
+        let iconView = NSImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.image = NSApp.applicationIconImage
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+
+        let title = NSTextField(labelWithString: "Set up BarShelf")
+        title.font = .systemFont(ofSize: 28, weight: .semibold)
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        let intro = NSTextField(wrappingLabelWithString: "BarShelf runs from the macOS menu bar. Before it can manage hidden menu bar icons, enable Accessibility permission. Screen Recording is recommended so BarShelf can show real icon previews in the floating shelf.")
+        intro.textColor = .secondaryLabelColor
+        intro.translatesAutoresizingMaskIntoConstraints = false
+
+        let accessibilityTitle = NSTextField(labelWithString: "Accessibility")
+        accessibilityTitle.font = .systemFont(ofSize: 14, weight: .semibold)
+        accessibilityTitle.translatesAutoresizingMaskIntoConstraints = false
+
+        let accessibilityValue = NSTextField(labelWithString: "")
+        accessibilityValue.translatesAutoresizingMaskIntoConstraints = false
+        setupAccessibilityValue = accessibilityValue
+
+        let accessibilityButton = NSButton(title: "Open Accessibility Settings", target: self, action: #selector(openAccessibilitySettingsFromSetup))
+        accessibilityButton.translatesAutoresizingMaskIntoConstraints = false
+
+        let screenTitle = NSTextField(labelWithString: "Screen Recording")
+        screenTitle.font = .systemFont(ofSize: 14, weight: .semibold)
+        screenTitle.translatesAutoresizingMaskIntoConstraints = false
+
+        let screenValue = NSTextField(labelWithString: "")
+        screenValue.translatesAutoresizingMaskIntoConstraints = false
+        setupScreenCaptureValue = screenValue
+
+        let screenButton = NSButton(title: "Open Screen Recording Settings", target: self, action: #selector(openScreenCaptureSettingsFromSetup))
+        screenButton.translatesAutoresizingMaskIntoConstraints = false
+
+        let launchCheckbox = NSButton(checkboxWithTitle: "Launch BarShelf at login", target: self, action: #selector(setupLaunchAtLoginChanged(_:)))
+        launchCheckbox.state = launchAtLogin.isEnabled ? .on : .off
+        launchCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        setupLaunchAtLoginCheckbox = launchCheckbox
+
+        let note = NSTextField(wrappingLabelWithString: "After enabling Accessibility, return here. The Finish Setup button will unlock automatically.")
+        note.textColor = .secondaryLabelColor
+        note.font = .systemFont(ofSize: 12)
+        note.translatesAutoresizingMaskIntoConstraints = false
+
+        let finishButton = NSButton(title: "Finish Setup", target: self, action: #selector(finishSetup))
+        finishButton.keyEquivalent = "\r"
+        finishButton.translatesAutoresizingMaskIntoConstraints = false
+        setupFinishButton = finishButton
+
+        let quitButton = NSButton(title: "Quit", target: self, action: #selector(quit))
+        quitButton.translatesAutoresizingMaskIntoConstraints = false
+
+        [iconView, title, intro, accessibilityTitle, accessibilityValue, accessibilityButton, screenTitle, screenValue, screenButton, launchCheckbox, note, finishButton, quitButton].forEach(content.addSubview)
+
+        NSLayoutConstraint.activate([
+            iconView.topAnchor.constraint(equalTo: content.topAnchor, constant: 26),
+            iconView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            iconView.widthAnchor.constraint(equalToConstant: 64),
+            iconView.heightAnchor.constraint(equalToConstant: 64),
+
+            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 30),
+            title.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 16),
+            title.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
+
+            intro.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+            intro.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            intro.trailingAnchor.constraint(equalTo: title.trailingAnchor),
+
+            accessibilityTitle.topAnchor.constraint(equalTo: intro.bottomAnchor, constant: 28),
+            accessibilityTitle.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            accessibilityValue.centerYAnchor.constraint(equalTo: accessibilityTitle.centerYAnchor),
+            accessibilityValue.leadingAnchor.constraint(equalTo: accessibilityTitle.trailingAnchor, constant: 12),
+            accessibilityButton.topAnchor.constraint(equalTo: accessibilityTitle.bottomAnchor, constant: 8),
+            accessibilityButton.leadingAnchor.constraint(equalTo: accessibilityTitle.leadingAnchor),
+
+            screenTitle.topAnchor.constraint(equalTo: accessibilityButton.bottomAnchor, constant: 22),
+            screenTitle.leadingAnchor.constraint(equalTo: accessibilityTitle.leadingAnchor),
+            screenValue.centerYAnchor.constraint(equalTo: screenTitle.centerYAnchor),
+            screenValue.leadingAnchor.constraint(equalTo: screenTitle.trailingAnchor, constant: 12),
+            screenButton.topAnchor.constraint(equalTo: screenTitle.bottomAnchor, constant: 8),
+            screenButton.leadingAnchor.constraint(equalTo: screenTitle.leadingAnchor),
+
+            launchCheckbox.topAnchor.constraint(equalTo: screenButton.bottomAnchor, constant: 24),
+            launchCheckbox.leadingAnchor.constraint(equalTo: accessibilityTitle.leadingAnchor),
+
+            note.topAnchor.constraint(equalTo: launchCheckbox.bottomAnchor, constant: 14),
+            note.leadingAnchor.constraint(equalTo: accessibilityTitle.leadingAnchor),
+            note.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
+
+            finishButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
+            finishButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -24),
+            quitButton.trailingAnchor.constraint(equalTo: finishButton.leadingAnchor, constant: -10),
+            quitButton.centerYAnchor.constraint(equalTo: finishButton.centerYAnchor)
+        ])
+
+        let window = NSWindow(contentRect: content.frame, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = "Set up BarShelf"
+        window.isReleasedWhenClosed = false
+        window.contentView = content
+        window.center()
+        setupWindow = window
+        updateSetupStatus()
+    }
+
+    private func startSetupStatusUpdates() {
+        setupTimer?.invalidate()
+        setupTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.updateSetupStatus()
+        }
+    }
+
+    private func updateSetupStatus() {
+        let accessibilityEnabled = PermissionManager.isAccessibilityTrusted
+        let screenCaptureEnabled = PermissionManager.hasScreenCaptureAccess
+
+        setupAccessibilityValue?.stringValue = accessibilityEnabled ? "Enabled" : "Not enabled"
+        setupAccessibilityValue?.textColor = accessibilityEnabled ? .systemGreen : .systemRed
+        setupScreenCaptureValue?.stringValue = screenCaptureEnabled ? "Enabled" : "Not enabled"
+        setupScreenCaptureValue?.textColor = screenCaptureEnabled ? .systemGreen : .systemOrange
+        setupLaunchAtLoginCheckbox?.state = launchAtLogin.isEnabled ? .on : .off
+        setupFinishButton?.isEnabled = accessibilityEnabled
+    }
+
+    @objc private func openAccessibilitySettingsFromSetup() {
+        PermissionManager.requestAccessibility()
+        PermissionManager.openAccessibilitySettings()
+        updateSetupStatus()
+    }
+
+    @objc private func openScreenCaptureSettingsFromSetup() {
+        PermissionManager.requestScreenCapture()
+        PermissionManager.openScreenCaptureSettings()
+        updateSetupStatus()
+    }
+
+    @objc private func setupLaunchAtLoginChanged(_ sender: NSButton) {
+        setLaunchAtLogin(sender.state == .on)
+        updateSetupStatus()
+    }
+
+    @objc private func finishSetup() {
+        guard PermissionManager.isAccessibilityTrusted else {
+            updateSetupStatus()
+            return
+        }
+        preferences.setupCompleted = true
+        setupTimer?.invalidate()
+        setupWindow?.close()
+        setupWindow = nil
+        rescanAndApply()
+        openSettings()
     }
 
     @objc private func openSettings() {

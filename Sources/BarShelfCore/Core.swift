@@ -95,6 +95,7 @@ public enum BarShelfDefaults {
         public static let shelfVisible = "shelfVisible.v1"
         public static let lastSeenItems = "lastSeenItems.v1"
         public static let lastScanAt = "lastScanAt.v1"
+        public static let setupCompleted = "setupCompleted.v1"
     }
 
     public static func store() -> UserDefaults {

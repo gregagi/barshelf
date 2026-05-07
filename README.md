@@ -26,7 +26,7 @@ Advanced routing needs user-granted macOS permissions:
 - **Accessibility** — forwards clicks from floating shelf items to the original menu bar item.
 - **Screen Recording / Screen Capture** — captures menu bar item images for the floating shelf.
 
-BarShelf asks for these from Settings → Request permissions. After granting permissions, quit and reopen BarShelf, then click Rescan.
+On first launch, BarShelf opens a setup window that shows live permission status, opens the correct macOS Privacy settings panes, and keeps **Finish Setup** disabled until Accessibility is granted. You can reopen this window later from the BarShelf menu → Setup.
 
 ## Install
 
@@ -41,11 +41,11 @@ Manual download:
 
 Download the latest `BarShelf.dmg` from GitHub Releases, drag `BarShelf.app` into Applications, then launch it.
 
-Unsigned builds may require right-click → Open the first time.
+Unsigned builds may require right-click → Open the first time. BarShelf is a menu bar app, so it does not stay in the Dock; first launch opens the setup window so the app is visible while permissions are configured.
 
 ## Usage
 
-BarShelf’s own `▦` icon always stays visible in the macOS menu bar. Click it to reveal or hide the floating shelf. Enable **Launch BarShelf at login** in Settings if you want BarShelf to start automatically when you sign in.
+BarShelf’s own `▦` icon always stays visible in the macOS menu bar after launch. Click it to reveal or hide the floating shelf. Enable **Launch BarShelf at login** in first-run setup or Settings if you want BarShelf to start automatically when you sign in.
 
 Open BarShelf Settings and assign each detected menu bar item to one of the three modes:
 
