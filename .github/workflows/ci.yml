@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release binary
+        run: swift build -c release
+      - name: Build app bundle
+        run: ./Scripts/build_app.sh

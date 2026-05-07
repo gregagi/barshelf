@@ -8,10 +8,12 @@
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>BarShelf</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleVersion</key><string>2</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Greg AGI. Open source under MIT License.</string>
+    <key>NSAppleEventsUsageDescription</key><string>BarShelf uses automation-style permissions to forward clicks from the floating shelf to the original menu bar item.</string>
+    <key>NSScreenCaptureDescription</key><string>BarShelf captures menu bar item images so hidden items can appear in the floating shelf.</string>
 </dict>
 </plist>

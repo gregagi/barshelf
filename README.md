@@ -2,27 +2,42 @@
 
 BarShelf is an open-source, free macOS menu bar manager experiment — a tiny native Bartender-style alternative.
 
-## Current MVP
+## Current direction
 
-This first version is intentionally small and installable:
+BarShelf now has two approaches:
 
-- runs as a native menu bar app
-- adds a BarShelf separator and toggle item
-- lets you hide icons using the proven separator/spacer pattern: hold `⌘` and drag menu bar icons into the hidden shelf, then collapse/expand the shelf
-- includes a settings window for shelf width, auto-collapse delay, and an optional always-hidden separator
-- packages as a `.dmg` on every GitHub release
+1. **Advanced per-item routing** — route detected menu bar items into:
+   - Always shown
+   - Floating shelf
+   - Always hidden
+2. **Fallback separator mode** — the original Hidden/Dozer-style separator and spacer technique.
 
-## Important limitation
+The advanced mode uses macOS window discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
 
-macOS does not provide a public API to directly hide, enumerate, or rearrange arbitrary third-party menu bar items. Commercial apps in this category rely on private APIs, Accessibility behavior, synthetic events, or visual overlay tricks.
+## Permissions
 
-BarShelf's MVP uses the safest open-source baseline first: user-arranged separators plus a collapsing spacer. It does not quit apps and does not require Accessibility permission.
+Advanced routing needs user-granted macOS permissions:
+
+- **Accessibility** — forwards clicks from floating shelf items to the original menu bar item.
+- **Screen Recording / Screen Capture** — captures menu bar item images for the floating shelf.
+
+BarShelf asks for these from Settings → Request permissions. After granting permissions, quit and reopen BarShelf, then click Rescan.
 
 ## Install
 
 Download the latest `BarShelf.dmg` from GitHub Releases, drag `BarShelf.app` into Applications, then launch it.
 
-Usage: hold `Command (⌘)` and drag menu bar icons to the left of BarShelf's `│` separator, then click BarShelf to collapse/expand that hidden shelf.
+Unsigned builds may require right-click → Open the first time.
+
+## Usage
+
+Open BarShelf Settings and assign each detected menu bar item to one of the three modes:
+
+- **Always shown** keeps the original icon visible in the macOS menu bar.
+- **Floating shelf** masks the original icon and shows it in BarShelf’s shelf below the menu bar.
+- **Always hidden** masks the original icon and does not show it in the shelf.
+
+If an item cannot be detected reliably, use fallback separator mode: hold `Command (⌘)`, drag menu bar icons to the left of BarShelf's `│` separator, then collapse/expand the shelf.
 
 ## Build locally
 
@@ -38,13 +53,12 @@ To create an app bundle locally on macOS:
 
 ## Release
 
-Create a GitHub release tag like `v0.1.0`. The release workflow builds on `macos-14`, creates `BarShelf.app`, packages `BarShelf.dmg`, and uploads it to the release assets.
+Create a GitHub release tag like `v0.2.0`. The release workflow builds on `macos-14`, creates `BarShelf.app`, packages `BarShelf.dmg`, and uploads it to the release assets.
 
 ## Roadmap
 
+- Harden per-item detection across macOS versions and notched displays
+- Better matching for duplicate items from the same app
 - Launch at login
 - Keyboard shortcut
-- Better notch/multi-display sizing
 - Signed + notarized builds once Apple Developer credentials are available
-- Optional advanced mode using private APIs / Accessibility for per-item control
-- iOS research later, separately
