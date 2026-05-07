@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Foundation
 import BarShelfCore
 import CoreGraphics
 import ServiceManagement
@@ -345,10 +346,119 @@ final class FloatingShelfWindowController: NSObject {
     }
 }
 
+
+struct GitHubRelease: Decodable {
+    let tagName: String
+    let htmlURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case htmlURL = "html_url"
+    }
+}
+
+final class UpdateManager {
+    static let latestReleaseURL = URL(string: "https://api.github.com/repos/LVTD-LLC/barshelf/releases/latest")!
+    static let releasesPageURL = URL(string: "https://github.com/LVTD-LLC/barshelf/releases/latest")!
+
+    var currentVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
+    func fetchLatestRelease(completion: @escaping (Result<GitHubRelease, Error>) -> Void) {
+        var request = URLRequest(url: Self.latestReleaseURL)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("BarShelf", forHTTPHeaderField: "User-Agent")
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+            guard let data else {
+                completion(.failure(NSError(domain: "BarShelfUpdate", code: 1, userInfo: [NSLocalizedDescriptionKey: "GitHub did not return release data."])))
+                return
+            }
+            do {
+                completion(.success(try JSONDecoder().decode(GitHubRelease.self, from: data)))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+
+    func isNewer(latestTag: String) -> Bool {
+        compareVersions(latestTag.normalizedVersion, currentVersion.normalizedVersion) == .orderedDescending
+    }
+
+    func updateWithHomebrew(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", "export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; if ! command -v brew >/dev/null 2>&1; then exit 42; fi; if ! brew list --cask barshelf >/dev/null 2>&1; then exit 43; fi; brew update && brew upgrade --cask barshelf"]
+
+            let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("barshelf-homebrew-update-\(UUID().uuidString).log")
+            FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+
+            do {
+                let outputHandle = try FileHandle(forWritingTo: outputURL)
+                defer {
+                    try? outputHandle.close()
+                    try? FileManager.default.removeItem(at: outputURL)
+                }
+                process.standardOutput = outputHandle
+                process.standardError = outputHandle
+
+                try process.run()
+                process.waitUntilExit()
+                let data = (try? Data(contentsOf: outputURL)) ?? Data()
+                let output = String(data: data, encoding: .utf8) ?? ""
+
+                if process.terminationStatus == 0 {
+                    completion(.success(output))
+                } else {
+                    let message: String
+                    switch process.terminationStatus {
+                    case 42:
+                        message = "Homebrew was not found on this Mac."
+                    case 43:
+                        message = "BarShelf does not appear to be installed through Homebrew."
+                    default:
+                        message = output.isEmpty ? "Homebrew exited with status \(process.terminationStatus)." : output
+                    }
+                    completion(.failure(NSError(domain: "BarShelfUpdate", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])))
+                }
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    private func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
+        let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
+        let count = max(left.count, right.count)
+        for index in 0..<count {
+            let l = index < left.count ? left[index] : 0
+            let r = index < right.count ? right[index] : 0
+            if l > r { return .orderedDescending }
+            if l < r { return .orderedAscending }
+        }
+        return .orderedSame
+    }
+}
+
+private extension String {
+    var normalizedVersion: String {
+        trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+    }
+}
+
 final class BarShelfController: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     private let scanner = MenuBarItemScanner()
     private let launchAtLogin = LaunchAtLoginController()
+    private let updateManager = UpdateManager()
     private let overlays = MaskOverlayController()
     private var floatingShelf: FloatingShelfWindowController!
     private var managedItems: [ManagedMenuBarItem] = []
@@ -394,6 +504,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         settingsItem.target = self
         appMenu.addItem(settingsItem)
         appMenu.addItem(NSMenuItem(title: "Setup", action: #selector(openSetup), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: ""))
         appMenu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit BarShelf", action: #selector(quit), keyEquivalent: "q")
         quitItem.keyEquivalentModifierMask = [.command]
@@ -427,6 +538,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         statusMenu.addItem(NSMenuItem(title: "Show / hide hidden icons", action: #selector(toggleShelfFromMenu), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ","))
         statusMenu.addItem(NSMenuItem(title: "Setup", action: #selector(openSetup), keyEquivalent: ""))
+        statusMenu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "Rescan menu bar items", action: #selector(rescanFromMenu), keyEquivalent: "r"))
         statusMenu.addItem(NSMenuItem(title: "Request permissions", action: #selector(requestPermissions), keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem(title: "How to Use", action: #selector(showHelp), keyEquivalent: "?"))
@@ -765,6 +877,9 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         let permissionButton = NSButton(title: "Request permissions", target: self, action: #selector(requestPermissions))
         permissionButton.translatesAutoresizingMaskIntoConstraints = false
 
+        let updateButton = NSButton(title: "Check for Updates", target: self, action: #selector(checkForUpdates))
+        updateButton.translatesAutoresizingMaskIntoConstraints = false
+
         let rescanButton = NSButton(title: "Rescan", target: self, action: #selector(rescanFromSettings))
         rescanButton.translatesAutoresizingMaskIntoConstraints = false
 
@@ -802,7 +917,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         alwaysHidden.state = preferences.alwaysHiddenEnabled ? .on : .off
         alwaysHidden.translatesAutoresizingMaskIntoConstraints = false
 
-        [title, instructions, advanced, launchAtLoginCheckbox, permissionButton, rescanButton, scroll, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
+        [title, instructions, advanced, launchAtLoginCheckbox, permissionButton, updateButton, rescanButton, scroll, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
 
         NSLayoutConstraint.activate([
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 24),
@@ -820,8 +935,10 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
 
             permissionButton.centerYAnchor.constraint(equalTo: launchAtLoginCheckbox.centerYAnchor),
             permissionButton.leadingAnchor.constraint(equalTo: launchAtLoginCheckbox.trailingAnchor, constant: 18),
+            updateButton.centerYAnchor.constraint(equalTo: launchAtLoginCheckbox.centerYAnchor),
+            updateButton.leadingAnchor.constraint(equalTo: permissionButton.trailingAnchor, constant: 10),
             rescanButton.centerYAnchor.constraint(equalTo: launchAtLoginCheckbox.centerYAnchor),
-            rescanButton.leadingAnchor.constraint(equalTo: permissionButton.trailingAnchor, constant: 10),
+            rescanButton.leadingAnchor.constraint(equalTo: updateButton.trailingAnchor, constant: 10),
 
             scroll.topAnchor.constraint(equalTo: launchAtLoginCheckbox.bottomAnchor, constant: 18),
             scroll.leadingAnchor.constraint(equalTo: title.leadingAnchor),
@@ -919,6 +1036,81 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     @objc private func rescanFromSettings() {
         rescanAndApply()
         rebuildSettingsWindowIfOpen()
+    }
+
+    @objc private func checkForUpdates() {
+        updateManager.fetchLatestRelease { [weak self] result in
+            DispatchQueue.main.async {
+                self?.handleUpdateCheck(result)
+            }
+        }
+    }
+
+    private func handleUpdateCheck(_ result: Result<GitHubRelease, Error>) {
+        switch result {
+        case .failure(let error):
+            showUpdateError("Could not check for updates", error.localizedDescription)
+        case .success(let release):
+            guard updateManager.isNewer(latestTag: release.tagName) else {
+                let alert = NSAlert()
+                alert.messageText = "BarShelf is up to date"
+                alert.informativeText = "Installed version: \(updateManager.currentVersion)\nLatest version: \(release.tagName.normalizedVersion)"
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+                return
+            }
+
+            let alert = NSAlert()
+            alert.messageText = "BarShelf \(release.tagName.normalizedVersion) is available"
+            alert.informativeText = "Installed version: \(updateManager.currentVersion)\n\nIf BarShelf was installed with Homebrew, BarShelf can run the cask upgrade for you. Otherwise, open the latest release and install the DMG manually."
+            alert.addButton(withTitle: "Update with Homebrew")
+            alert.addButton(withTitle: "Open Release")
+            alert.addButton(withTitle: "Cancel")
+            let response = alert.runModal()
+
+            if response == .alertFirstButtonReturn {
+                runHomebrewUpdate()
+            } else if response == .alertSecondButtonReturn {
+                openLatestRelease(urlString: release.htmlURL)
+            }
+        }
+    }
+
+    private func runHomebrewUpdate() {
+        updateManager.updateWithHomebrew { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let output):
+                    let alert = NSAlert()
+                    alert.messageText = "Update command completed"
+                    alert.informativeText = output.isEmpty ? "Homebrew finished without output. Reopen BarShelf to use the new version." : "Homebrew finished. Reopen BarShelf to use the new version.\n\n\(output.prefix(1600))"
+                    alert.addButton(withTitle: "Quit BarShelf")
+                    alert.addButton(withTitle: "OK")
+                    if alert.runModal() == .alertFirstButtonReturn {
+                        NSApp.terminate(nil)
+                    }
+                case .failure(let error):
+                    self?.showUpdateError("Could not update with Homebrew", "\(error.localizedDescription)\n\nOpening the latest release page instead.")
+                    NSWorkspace.shared.open(UpdateManager.releasesPageURL)
+                }
+            }
+        }
+    }
+
+    private func openLatestRelease(urlString: String) {
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        } else {
+            NSWorkspace.shared.open(UpdateManager.releasesPageURL)
+        }
+    }
+
+    private func showUpdateError(_ title: String, _ message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func requestPermissions() {

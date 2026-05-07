@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 - 2026-05-07
+
+- Added in-app update checking against the latest GitHub release.
+- Added Settings and menu actions for checking updates.
+- Added Homebrew-based in-app upgrade path for cask installs, with release-page fallback for manual installs.
+
 ## 0.3.5 - 2026-05-07
 
 - Added Command-comma keyboard shortcut to open BarShelf Settings while the app is active.
