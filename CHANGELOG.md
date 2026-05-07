@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-05-07
+
+- Made BarShelf’s own status bar icon persistently visible and changed its default click behavior to reveal/hide the floating shelf of hidden icons.
+- Start with the floating shelf hidden by default; users reveal it by clicking the BarShelf icon.
+
 ## 0.2.0 - 2026-05-07
 
 - Added advanced per-item routing settings with three modes: always shown, floating shelf, and always hidden.
