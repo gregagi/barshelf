@@ -4,8 +4,8 @@
 
 BarShelf is an open-source, free macOS menu bar manager experiment — a tiny native Bartender-style alternative.
 
-Documentation site: https://gregagi.github.io/barshelf/
-Signing and notarization: https://gregagi.github.io/barshelf/signing-notarization.html
+Documentation site: https://lvtd-llc.github.io/barshelf/
+Signing and notarization: https://lvtd-llc.github.io/barshelf/signing-notarization.html
 
 ## Current direction
 
