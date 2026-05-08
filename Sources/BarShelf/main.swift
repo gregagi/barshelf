@@ -574,7 +574,14 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         configureButton(separatorItem.button, title: "│", help: "BarShelf separator. Hold Command and drag menu bar icons left of this marker to hide them when collapsed.")
 
         toggleItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        configureButton(toggleItem.button, title: "▦", help: "Show BarShelf hidden icons")
+        configureButton(toggleItem.button, title: "", help: "Show BarShelf hidden icons")
+        if let image = NSImage(systemSymbolName: "menubar.rectangle", accessibilityDescription: "BarShelf") ?? NSImage(systemSymbolName: "rectangle.grid.2x2", accessibilityDescription: "BarShelf") {
+            image.isTemplate = true
+            toggleItem.button?.image = image
+            toggleItem.button?.imagePosition = .imageOnly
+        } else {
+            toggleItem.button?.title = "▦"
+        }
         toggleItem.button?.target = self
         toggleItem.button?.action = #selector(toggleShelf)
         toggleItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -928,26 +935,45 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         let rescanButton = NSButton(title: "Rescan", target: self, action: #selector(rescanFromSettings))
         rescanButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let rows = NSStackView()
-        rows.orientation = .vertical
-        rows.alignment = .leading
-        rows.spacing = 8
-        rows.translatesAutoresizingMaskIntoConstraints = false
+        let stripContainer = NSView()
+        stripContainer.translatesAutoresizingMaskIntoConstraints = false
+        stripContainer.wantsLayer = true
+        stripContainer.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.86).cgColor
+        stripContainer.layer?.cornerRadius = 14
+        stripContainer.layer?.borderWidth = 1
+        stripContainer.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.7).cgColor
+
+        let strip = NSStackView()
+        strip.orientation = .horizontal
+        strip.alignment = .centerY
+        strip.spacing = 8
+        strip.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        strip.translatesAutoresizingMaskIntoConstraints = false
 
         if managedItems.isEmpty {
             let empty = NSTextField(wrappingLabelWithString: "No third-party menu bar items detected yet. Make sure Screen Recording permission is granted, then click Rescan.")
             empty.textColor = .secondaryLabelColor
-            rows.addArrangedSubview(empty)
+            strip.addArrangedSubview(empty)
         } else {
             for item in managedItems {
-                rows.addArrangedSubview(row(for: item))
+                strip.addArrangedSubview(iconCard(for: item))
             }
         }
 
+        stripContainer.addSubview(strip)
+
         let scroll = NSScrollView()
-        scroll.documentView = rows
-        scroll.hasVerticalScroller = true
+        scroll.documentView = stripContainer
+        scroll.hasHorizontalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false
+
+        let legend = NSTextField(labelWithString: "Click an icon to cycle: shown → floating shelf → always hidden. Hover to see the item name.")
+        legend.textColor = .secondaryLabelColor
+        legend.font = .systemFont(ofSize: 12)
+        legend.translatesAutoresizingMaskIntoConstraints = false
 
         let legacyTitle = NSTextField(labelWithString: "Fallback separator mode")
         legacyTitle.font = .systemFont(ofSize: 14, weight: .semibold)
@@ -962,7 +988,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         alwaysHidden.state = preferences.alwaysHiddenEnabled ? .on : .off
         alwaysHidden.translatesAutoresizingMaskIntoConstraints = false
 
-        [title, instructions, advanced, launchAtLoginCheckbox, permissionButton, updateButton, rescanButton, scroll, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
+        [title, instructions, advanced, launchAtLoginCheckbox, permissionButton, updateButton, rescanButton, scroll, legend, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
 
         NSLayoutConstraint.activate([
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 24),
@@ -988,9 +1014,20 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
             scroll.topAnchor.constraint(equalTo: launchAtLoginCheckbox.bottomAnchor, constant: 18),
             scroll.leadingAnchor.constraint(equalTo: title.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: title.trailingAnchor),
-            scroll.heightAnchor.constraint(equalToConstant: 250),
+            scroll.heightAnchor.constraint(equalToConstant: 94),
 
-            legacyTitle.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 20),
+            stripContainer.heightAnchor.constraint(equalToConstant: 78),
+            stripContainer.widthAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.widthAnchor),
+            strip.topAnchor.constraint(equalTo: stripContainer.topAnchor),
+            strip.leadingAnchor.constraint(equalTo: stripContainer.leadingAnchor),
+            strip.trailingAnchor.constraint(equalTo: stripContainer.trailingAnchor),
+            strip.bottomAnchor.constraint(equalTo: stripContainer.bottomAnchor),
+
+            legend.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 8),
+            legend.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            legend.trailingAnchor.constraint(equalTo: title.trailingAnchor),
+
+            legacyTitle.topAnchor.constraint(equalTo: legend.bottomAnchor, constant: 20),
             legacyTitle.leadingAnchor.constraint(equalTo: title.leadingAnchor),
 
             widthLabel.topAnchor.constraint(equalTo: legacyTitle.bottomAnchor, constant: 14),
@@ -1009,36 +1046,52 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         settingsWindow?.center()
     }
 
-    private func row(for item: ManagedMenuBarItem) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 10
-        row.frame = NSRect(x: 0, y: 0, width: 660, height: 32)
+    private func iconCard(for item: ManagedMenuBarItem) -> NSView {
+        let mode = preferences.mode(for: item)
+        let button = NSButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.isBordered = false
+        button.toolTip = "\(item.displayName) — \(mode.label). Click to cycle mode."
+        button.target = self
+        button.action = #selector(iconModeClicked(_:))
+        button.identifier = NSUserInterfaceItemIdentifier(item.id)
+        button.setButtonType(.momentaryChange)
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 10
+        button.layer?.masksToBounds = true
+        button.layer?.backgroundColor = iconBackgroundColor(for: mode).cgColor
+        button.layer?.borderWidth = 2
+        button.layer?.borderColor = iconBorderColor(for: mode).cgColor
 
-        let imageView = NSImageView(frame: NSRect(x: 0, y: 0, width: 24, height: 24))
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.image = item.image
-        imageView.imageScaling = .scaleProportionallyDown
+        if let image = item.image?.copy() as? NSImage {
+            image.size = NSSize(width: min(max(item.bounds.width, 18), 30), height: min(max(item.bounds.height, 18), 26))
+            button.image = image
+            button.imagePosition = .imageOnly
+        } else {
+            button.title = String(item.owner.prefix(1)).uppercased()
+            button.font = .systemFont(ofSize: 14, weight: .semibold)
+            button.imagePosition = .noImage
+        }
 
-        let label = NSTextField(labelWithString: item.displayName)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.lineBreakMode = .byTruncatingTail
-        label.widthAnchor.constraint(equalToConstant: 360).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 46).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        return button
+    }
 
-        let popup = NSPopUpButton()
-        popup.translatesAutoresizingMaskIntoConstraints = false
-        for mode in VisibilityMode.allCases { popup.addItem(withTitle: mode.label) }
-        popup.selectItem(withTitle: preferences.mode(for: item).label)
-        popup.target = self
-        popup.action = #selector(modeChanged(_:))
-        popup.identifier = NSUserInterfaceItemIdentifier(item.id)
-        popup.widthAnchor.constraint(equalToConstant: 170).isActive = true
+    private func iconBackgroundColor(for mode: VisibilityMode) -> NSColor {
+        switch mode {
+        case .alwaysShown: return NSColor.black.withAlphaComponent(0.72)
+        case .floatingShelf: return NSColor.systemBlue.withAlphaComponent(0.24)
+        case .alwaysHidden: return NSColor.systemGray.withAlphaComponent(0.28)
+        }
+    }
 
-        row.addArrangedSubview(imageView)
-        row.addArrangedSubview(label)
-        row.addArrangedSubview(popup)
-        return row
+    private func iconBorderColor(for mode: VisibilityMode) -> NSColor {
+        switch mode {
+        case .alwaysShown: return NSColor.separatorColor.withAlphaComponent(0.75)
+        case .floatingShelf: return .systemBlue
+        case .alwaysHidden: return .systemGray
+        }
     }
 
     private func rebuildSettingsWindowIfOpen() {
@@ -1054,6 +1107,22 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
               let mode = VisibilityMode.allCases.first(where: { $0.label == selected }) else { return }
         preferences.setMode(mode, for: item)
         rescanAndApply()
+    }
+
+    @objc private func iconModeClicked(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue,
+              let item = managedItems.first(where: { $0.id == id }) else { return }
+        preferences.setMode(nextMode(after: preferences.mode(for: item)), for: item)
+        rescanAndApply()
+        rebuildSettingsWindowIfOpen()
+    }
+
+    private func nextMode(after mode: VisibilityMode) -> VisibilityMode {
+        switch mode {
+        case .alwaysShown: return .floatingShelf
+        case .floatingShelf: return .alwaysHidden
+        case .alwaysHidden: return .alwaysShown
+        }
     }
 
     @objc private func advancedRoutingChanged(_ sender: NSButton) {
