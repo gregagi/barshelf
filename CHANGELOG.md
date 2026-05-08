@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Reworked Settings item routing from a low-contrast vertical app-name table into a horizontal icon strip that better matches the macOS menu bar mental model.
+- Added high-contrast rounded icon wells and mode-colored borders so white/translucent captured menu bar icons remain visible.
+- Changed per-item routing to click-to-cycle icon controls with tooltips instead of repeated app-name rows.
+- Replaced the text-only BarShelf menu bar glyph with a template SF Symbol when available.
+
 ## 0.3.7 - 2026-05-08
 
 - Improved advanced menu bar item discovery by using the macOS status-window level, a wider modern menu-extra size range, de-duplicated all-window/on-screen scans, alpha filtering, and BarShelf bundle exclusion.
