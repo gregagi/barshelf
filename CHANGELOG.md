@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.11 - 2026-05-08
 
 - Fixed update friction by no longer forcing setup after the user has completed first-run setup, and by avoiding per-build ad-hoc signing when no Developer ID identity is configured.
 - Stopped masking floating-shelf items in the real menu bar, preventing the broken gray overlay from appearing over/under the menu bar.
