@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.8 - 2026-05-08
 
 - Reworked Settings item routing from a low-contrast vertical app-name table into a horizontal icon strip that better matches the macOS menu bar mental model.
 - Added high-contrast rounded icon wells and mode-colored borders so white/translucent captured menu bar icons remain visible.
