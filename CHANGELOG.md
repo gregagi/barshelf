@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.7 - 2026-05-08
 
 - Improved advanced menu bar item discovery by using the macOS status-window level, a wider modern menu-extra size range, de-duplicated all-window/on-screen scans, alpha filtering, and BarShelf bundle exclusion.
 - Reworked the floating shelf to behave more like Ice's gallery example: a non-activating panel above the menu bar level, anchored near the BarShelf icon, clamped to the active screen, and positioned below the menu bar using the screen visible frame instead of drawing over the menu bar.
