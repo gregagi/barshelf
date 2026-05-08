@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Replaced the single click-to-cycle settings strip with a three-row organizer for Always shown, Floating shelf, and Always hidden states.
+- Added drag-and-drop assignment between rows plus persisted visual ordering within each row and in the floating shelf.
+- Improved icon rendering for Accessibility-only Apple menu extras by mapping known extras to SF Symbols instead of showing letter tiles.
+- Raised the floating shelf to a popup-menu window level and aligned it with the persisted floating-row order.
+
 ## 0.3.9 - 2026-05-08
 
 - Added an experimental Accessibility-based menu extra scanner that reads `AXExtrasMenuBar`/menu-bar items and merges those results with the existing WindowServer scanner.

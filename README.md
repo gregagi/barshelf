@@ -48,7 +48,7 @@ Unsigned builds may require right-click → Open the first time. BarShelf is a m
 
 BarShelf’s own `▦` icon always stays visible in the macOS menu bar after launch. Click it to reveal or hide the floating shelf. Enable **Launch BarShelf at login** in first-run setup or Settings if you want BarShelf to start automatically when you sign in.
 
-Open BarShelf Settings with the BarShelf menu item or `Command-comma` while BarShelf is active. Settings includes **Check for Updates**, which can upgrade Homebrew cask installs in-place or open the latest release for manual installs. The detected items are shown as a horizontal icon strip, similar to the real menu bar. Click any icon to cycle it through the three modes:
+Open BarShelf Settings with the BarShelf menu item or `Command-comma` while BarShelf is active. Settings includes **Check for Updates**, which can upgrade Homebrew cask installs in-place or open the latest release for manual installs. The detected items are shown in three rows. Drag icons between rows to change state, and drag inside a row to set BarShelf’s preferred visual order:
 
 - **Always shown** keeps the original icon visible in the macOS menu bar.
 - **Floating shelf** masks the original icon and shows it in BarShelf’s floating panel below the menu bar when you click the BarShelf icon. The shelf anchors near BarShelf’s own icon and stays clamped to the current screen, similar to Ice’s separate-bar gallery behavior.

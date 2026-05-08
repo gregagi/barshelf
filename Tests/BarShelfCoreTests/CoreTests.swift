@@ -66,6 +66,21 @@ final class AppleMenuExtraNameMapperTests: XCTestCase {
     func testUnknownNamesAreNotMapped() {
         XCTAssertNil(AppleMenuExtraNameMapper.displayName(for: "SomeFutureMenuExtra"))
     }
+
+    func testMapsReadableNamesToSymbols() {
+        XCTAssertEqual(AppleMenuExtraNameMapper.symbolName(for: "Wi-Fi"), "wifi")
+        XCTAssertEqual(AppleMenuExtraNameMapper.symbolName(for: "Battery"), "battery.75percent")
+    }
+}
+
+final class MenuBarItemOrderingTests: XCTestCase {
+    func testMovesItemBeforeTarget() {
+        XCTAssertEqual(MenuBarItemOrdering.orderedIds(afterMoving: "c", before: "b", in: ["a", "b", "c"]), ["a", "c", "b"])
+    }
+
+    func testMovesItemToEndWhenNoTarget() {
+        XCTAssertEqual(MenuBarItemOrdering.orderedIds(afterMoving: "a", before: nil, in: ["a", "b", "c"]), ["b", "c", "a"])
+    }
 }
 
 final class FloatingShelfLayoutCalculatorTests: XCTestCase {

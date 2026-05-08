@@ -138,6 +138,33 @@ public enum AppleMenuExtraNameMapper {
         }
         return nil
     }
+
+    public static func symbolName(for displayName: String) -> String? {
+        switch displayName.lowercased() {
+        case "accessibility shortcuts": return "accessibility"
+        case "airdrop": return "airdrop"
+        case "airplay": return "airplayvideo"
+        case "audio/video": return "video.fill"
+        case "battery": return "battery.75percent"
+        case "bluetooth": return "bluetooth"
+        case "control center": return "switch.2"
+        case "display": return "display"
+        case "focus": return "moon.fill"
+        case "keyboard brightness": return "keyboard"
+        case "music recognition": return "shazam.logo"
+        case "network speed": return "speedometer"
+        case "now playing": return "play.circle.fill"
+        case "screen mirroring": return "rectangle.on.rectangle"
+        case "siri": return "sparkles"
+        case "sound": return "speaker.wave.2.fill"
+        case "spotlight": return "magnifyingglass"
+        case "stage manager": return "rectangle.3.group"
+        case "time machine": return "clock.arrow.circlepath"
+        case "fast user switching": return "person.crop.circle"
+        case "wi-fi": return "wifi"
+        default: return nil
+        }
+    }
 }
 
 public struct FloatingShelfLayout: Equatable {
@@ -210,6 +237,30 @@ public enum VisibilityModeCodec {
     }
 }
 
+public enum ItemOrderCodec {
+    public static func encode(_ order: [String: [String]]) throws -> Data {
+        try JSONEncoder().encode(order)
+    }
+
+    public static func decode(_ data: Data?) -> [String: [String]] {
+        guard let data,
+              let raw = try? JSONDecoder().decode([String: [String]].self, from: data) else { return [:] }
+        return raw
+    }
+}
+
+public enum MenuBarItemOrdering {
+    public static func orderedIds(afterMoving id: String, before targetId: String?, in ids: [String]) -> [String] {
+        var result = ids.filter { $0 != id }
+        if let targetId, let index = result.firstIndex(of: targetId) {
+            result.insert(id, at: index)
+        } else {
+            result.append(id)
+        }
+        return result
+    }
+}
+
 public enum BarShelfDefaults {
     public static let suiteName = "com.gregagi.barshelf"
 
@@ -219,6 +270,7 @@ public enum BarShelfDefaults {
         public static let alwaysHiddenEnabled = "alwaysHiddenEnabled.v1"
         public static let autoCollapseSeconds = "autoCollapseSeconds.v1"
         public static let itemModes = "itemModes.v2"
+        public static let itemOrder = "itemOrder.v1"
         public static let useAdvancedRouting = "useAdvancedRouting.v2"
         public static let shelfVisible = "shelfVisible.v1"
         public static let lastSeenItems = "lastSeenItems.v1"
@@ -257,6 +309,15 @@ public struct BarShelfSettingsStore {
         }
     }
 
+    public var itemOrder: [String: [String]] {
+        get { ItemOrderCodec.decode(defaults.data(forKey: BarShelfDefaults.Key.itemOrder)) }
+        nonmutating set {
+            if let data = try? ItemOrderCodec.encode(newValue) {
+                defaults.set(data, forKey: BarShelfDefaults.Key.itemOrder)
+            }
+        }
+    }
+
     public var lastSeenItems: [MenuBarItemSnapshot] {
         get {
             guard let data = defaults.data(forKey: BarShelfDefaults.Key.lastSeenItems),
@@ -284,6 +345,16 @@ public struct BarShelfSettingsStore {
         var modes = itemModes
         modes[itemId] = mode
         itemModes = modes
+    }
+
+    public func order(for mode: VisibilityMode) -> [String] {
+        itemOrder[mode.rawValue] ?? []
+    }
+
+    public func setOrder(_ ids: [String], for mode: VisibilityMode) {
+        var order = itemOrder
+        order[mode.rawValue] = ids
+        itemOrder = order
     }
 
     public func synchronize() {
