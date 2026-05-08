@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.10 - 2026-05-08
 
 - Replaced the single click-to-cycle settings strip with a three-row organizer for Always shown, Floating shelf, and Always hidden states.
 - Added drag-and-drop assignment between rows plus persisted visual ordering within each row and in the floating shelf.
