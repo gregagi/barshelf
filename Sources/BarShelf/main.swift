@@ -530,7 +530,7 @@ final class MaskOverlayController {
 
         let view = NSVisualEffectView(frame: NSRect(origin: .zero, size: bounds.size))
         view.autoresizingMask = [.width, .height]
-        view.material = .menuBar
+        view.material = .menu
         view.blendingMode = .behindWindow
         view.state = .active
         panel.contentView = view
