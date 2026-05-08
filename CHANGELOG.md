@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.9 - 2026-05-08
 
 - Added an experimental Accessibility-based menu extra scanner that reads `AXExtrasMenuBar`/menu-bar items and merges those results with the existing WindowServer scanner.
 - Improved detection of Control Center and SystemUIServer-owned extras with readable names like Battery, Wi-Fi, Audio/Video, Time Machine, and Control Center.
