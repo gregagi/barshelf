@@ -2,6 +2,7 @@
 set -euo pipefail
 
 APP_NAME="BarShelf"
+APP_EXECUTABLE="BarShelfApp"
 BUNDLE_ID="com.gregagi.barshelf"
 CONFIGURATION="release"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,10 +19,10 @@ cd "$ROOT_DIR"
 rm -rf dist
 swift build -c "$CONFIGURATION"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$BUILD_DIR/$APP_EXECUTABLE" "$MACOS_DIR/$APP_EXECUTABLE"
 cp "$BUILD_DIR/barshelf" "$MACOS_DIR/barshelf"
 cp "$ROOT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
-chmod +x "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/barshelf"
+chmod +x "$MACOS_DIR/$APP_EXECUTABLE" "$MACOS_DIR/barshelf"
 
 if [[ -f "$ICON_PNG" ]] && command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
   mkdir -p "$ICONSET_DIR"
@@ -40,6 +41,7 @@ if [[ -f "$ICON_PNG" ]] && command -v sips >/dev/null 2>&1 && command -v iconuti
 fi
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS_DIR/Info.plist" >/dev/null
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $APP_EXECUTABLE" "$CONTENTS_DIR/Info.plist" >/dev/null
 
 SIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 if [[ -n "$SIGN_IDENTITY" ]]; then

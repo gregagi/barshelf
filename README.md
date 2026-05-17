@@ -111,6 +111,15 @@ swift build -c release
 ./Scripts/build_app.sh
 ```
 
+For local Codex-assisted UI work on a real Mac, install Peekaboo and run the visual smoke check:
+
+```bash
+brew install steipete/tap/peekaboo
+./Scripts/dev_check.sh
+```
+
+The smoke check launches `dist/BarShelf.app`, exercises the bundled `barshelf` CLI, verifies that setup/settings is visible through Peekaboo, and writes screenshots plus JSON observations to `tmp/peekaboo/`. Peekaboo needs Screen Recording permission for screenshots; Accessibility is recommended for click/menu automation.
+
 UI behavior that depends on macOS Accessibility or Screen Recording prompts still needs manual verification on a real Mac because GitHub runners cannot grant those permissions interactively.
 
 ## Build locally

@@ -183,7 +183,7 @@ final class CLIParserTests: XCTestCase {
 final class BarShelfSettingsStoreTests: XCTestCase {
     func testStoresModesAndLastSeenItemsInInjectedDefaults() {
         let defaults = UserDefaults(suiteName: "com.gregagi.barshelf.tests.\(UUID().uuidString)")!
-        var store = BarShelfSettingsStore(defaults: defaults)
+        let store = BarShelfSettingsStore(defaults: defaults)
         let item = MenuBarItemSnapshot(id: "Dropbox|status-item|1170", owner: "Dropbox", name: "", x: 1170)
 
         store.lastSeenItems = [item]
@@ -196,6 +196,10 @@ final class BarShelfSettingsStoreTests: XCTestCase {
         XCTAssertTrue(store.shelfVisible)
         XCTAssertFalse(store.useAdvancedRouting)
         XCTAssertNotNil(store.lastScanAt)
+    }
+
+    func testDefaultsStoreUsesStandardDefaultsInsideMainAppBundle() {
+        XCTAssertTrue(BarShelfDefaults.store(mainBundleIdentifier: BarShelfDefaults.suiteName) === UserDefaults.standard)
     }
 }
 

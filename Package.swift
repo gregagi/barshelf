@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [
         .library(name: "BarShelfCore", targets: ["BarShelfCore"]),
-        .executable(name: "BarShelf", targets: ["BarShelf"]),
+        .executable(name: "BarShelfApp", targets: ["BarShelfApp"]),
         .executable(name: "barshelf", targets: ["BarShelfCLI"])
     ],
     targets: [
@@ -15,7 +15,7 @@ let package = Package(
             path: "Sources/BarShelfCore"
         ),
         .executableTarget(
-            name: "BarShelf",
+            name: "BarShelfApp",
             dependencies: ["BarShelfCore"],
             path: "Sources/BarShelf"
         ),
