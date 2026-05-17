@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleExecutable</key><string>BarShelf</string>
+    <key>CFBundleExecutable</key><string>BarShelfApp</string>
     <key>CFBundleIdentifier</key><string>com.gregagi.barshelf</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>BarShelf</string>

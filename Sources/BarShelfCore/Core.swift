@@ -278,8 +278,11 @@ public enum BarShelfDefaults {
         public static let setupCompleted = "setupCompleted.v1"
     }
 
-    public static func store() -> UserDefaults {
-        UserDefaults(suiteName: suiteName) ?? .standard
+    public static func store(mainBundleIdentifier: String? = Bundle.main.bundleIdentifier) -> UserDefaults {
+        if mainBundleIdentifier == suiteName {
+            return .standard
+        }
+        return UserDefaults(suiteName: suiteName) ?? .standard
     }
 }
 
